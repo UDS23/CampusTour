@@ -1,17 +1,24 @@
-import * as BABYLON from '@babylonjs/core'; // this is wrong
+import * as BABYLON from "@babylonjs/core"; // this is wrong
 import * as GUI from "@babylonjs/gui";
 import * as LOADERS from "@babylonjs/loaders";
 
 //import oneTrack from 'public/assets/AvatarNarrations/Two.mp3';
 
-import oneTrack from '/One.mp3';
+import oneTrack from "/One.mp3";
 const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
 
 // Create an audio engine
 
-const createScene = async function() {
-  const scene = new BABYLON.Scene(engine);
+let scene;
+
+//let campusTaxi = null;
+
+const activeAnimations = [];
+//const animationGroups = [];
+
+const createScene = async function () {
+  scene = new BABYLON.Scene(engine);
 
   const camera = new BABYLON.ArcRotateCamera(
     "camera",
@@ -31,31 +38,46 @@ const createScene = async function() {
 
   BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
 
-  const sphere = BABYLON.MeshBuilder.CreateSphere(
-    "sphere",
-    { diameter: 1 },
+  const campusTaxiParameters = await BABYLON.SceneLoader.ImportMeshAsync(
+    null,
+    "/assets/meshes/UFO.glb",
+    null,
     scene
   );
-  sphere.position = new BABYLON.Vector3(1, 4, 2); // Starting Position of Shuttle
 
+  const campusTaxiMesh = campusTaxiParameters.meshes[0];
+  campusTaxiMesh.position = new BABYLON.Vector3(1, 4, 2);
+  campusTaxiMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
+  const animationGroups = campusTaxiParameters.animationGroups;
+  let animationSpeedWhileIdle = 2;
+  let animationSpeedWhileTraveling = 15;
+
+  // // stop all animations
+  //animationGroups.forEach(animation => animation.stop());
+
+  // // Expose Animation Number and Index
+  // console.log("Number of animations:", animationGroups.length);
+  // animationGroups.forEach((group, index) => {
+  // console.log(`Animation ${index}: Name = ${group.name}`);
+  // });
+
+  //animationGroups[0].start(true);
+  //animationGroups[0].speedRatio = animationSpeedWhileIdle;
+  //animationGroups[0].stop();
+
+  //   if (!animationInProgress){
+  //   animationGroups[0].speedRatio = animationSpeedWhileIdle;
+  // }
+  // else {
+
+  //   animationGroups[0].speedRatio = animationSpeedWhileTraveling;
+  //   }
 
   const stationSoundPaths = [
     "/assets/AvatarNarrations/One.mp3",
     "/assets/AvatarNarrations/Two.mp3",
     "/assets/AvatarNarrations/Three.mp3",
   ];
-
-  // const oneTrackFile = new BABYLON.Sound(
-  //   "Narration",
-  //   oneTrack,
-  //   scene,
-  //   null,
-  //   {autoplay: false,
-  //   loop: false}
-  // );
-
-
-  // Wait until audio engine is ready to play sounds.
 
   const stationSounds = [];
 
@@ -65,19 +87,17 @@ const createScene = async function() {
       path,
       scene,
       null,
-      { autoplay: false,
-        loop: false,
-       }
+      { autoplay: false, loop: false }
     );
     stationSounds.push(sound);
   });
   console.log("loaded Sounds:", stationSounds);
 
   const stations = [
-    sphere.position.clone(), // Station 0 Start
+    campusTaxiMesh.position.clone(), // Station 0 Start
     new BABYLON.Vector3(4, 1, 4), // Station 1
-    new BABYLON.Vector3(8, 1, 0),
-    new BABYLON.Vector3(5, 1, -3), // Station 2
+    new BABYLON.Vector3(8, 1, 0), // Station 2
+    new BABYLON.Vector3(5, 1, -3), // Station 3
   ];
 
   const stationCrossingPoints = {
@@ -104,12 +124,23 @@ const createScene = async function() {
     new BABYLON.Color3(0, 1, 1), // Cyan
   ];
 
+  const travelDurations = [
+    // Need to be adjusted
+    1, // 0 - 1
+    4, // 1 - 2
+    1,
+    2,
+    3,
+    4,
+  ];
+
   let currentStationIndex = 0;
   let currentControlPoints = [];
 
   let animationInProgress = false;
   let t = 0;
-  const duration = 2; // seconds
+
+  //const duration = 2; // seconds
 
   function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -184,34 +215,23 @@ const createScene = async function() {
     }
   }
 
-  async function startAutomatedTour() {
-    
-  const sound = stationSounds[currentStationIndex];
-
-
-  if (!sound) {
-    console.warn("No sound for station", currentStationIndex);
-    return;
-  }
-
-    // if (currentStationIndex < 1) { // we are at the beginning
-    // sound.play();
-    // }
+  async function avatarNarration() {
+    const sound = stationSounds[currentStationIndex];
+    if (!sound) {
+      console.warn("No sound for station", currentStationIndex);
+      return;
+    }
     sound.play();
     await new Promise((resolve) => {
-    sound.onEndedObservable.add(() => {
-      resolve();
+      sound.onEndedObservable.add(() => {
+        resolve();
       });
     });
-    // const remainingTime = (1 - t) * duration * 1000;
-    // await delay(remainingTime);
-    // }
 
+    // DO STH after Narration has ended
+  }
 
-    //stationSounds[currentStationIndex].play();
-    //const narrationDuration = stationSounds[currentStationIndex].duration;
-    //console.log("narration Duration = " + narrationDuration);
-    //await delay(200);
+  async function startAutomatedTour() {
     animationInProgress = false;
     travelToNextStation();
   }
@@ -227,10 +247,16 @@ const createScene = async function() {
         ...(stationCrossingPoints[currentStationIndex] || []),
         stations[currentStationIndex + 1].clone(),
       ];
-      currentStationIndex++;
-      // if (automatedTourActive) {
-      //   startAutomatedTour(); // This can only start after the next point is reached 
-      // }
+
+      animateAlongBezier({
+        mesh: campusTaxiMesh,
+        controlPoints: currentControlPoints,
+        duration: travelDurations[currentStationIndex],
+        onComplete: () => {
+          animationInProgress = false;
+          currentStationIndex++;
+        },
+      });
     }
   }
 
@@ -251,36 +277,77 @@ const createScene = async function() {
         ...reversedCrossingPoints,
         stations[currentStationIndex - 1].clone(),
       ];
-      currentStationIndex--;
+
+      animateAlongBezier({
+        mesh: campusTaxiMesh,
+        controlPoints: currentControlPoints,
+        duration: travelDurations[currentStationIndex - 1],
+        onComplete: () => {
+          console.log("Animation finished!");
+          if (automatedTourActive) {
+            startAutomatedTour();
+          }
+          animationInProgress = false;
+          currentStationIndex--;
+        },
+      });
     }
   }
 
+  function animateAlongBezier({
+    mesh,
+    controlPoints,
+    duration,
+    onComplete = () => {},
+  }) {
+    let t = 0;
+    animationGroups[0].speedRatio = animationSpeedWhileTraveling;
+    // The per-frame animation function
+    const animationLoop = () => {
+      t += engine.getDeltaTime() / 1000 / duration;
 
+      if (t >= 1) {
+        t = 1;
+        const newPos = getBezierPoint(t, controlPoints);
+        mesh.position.copyFrom(newPos);
+
+        // Cleanup: remove this animation from the array
+        const index = activeAnimations.indexOf(animationLoop);
+        if (index !== -1) {
+          activeAnimations.splice(index, 1);
+        }
+
+        onComplete(); // trigger the callback
+        animationGroups[0].speedRatio = animationSpeedWhileIdle;
+        return;
+      }
+
+      const newPos = getBezierPoint(t, controlPoints);
+      mesh.position.copyFrom(newPos);
+    };
+
+    // Register this animation to be called each frame
+    activeAnimations.push(animationLoop);
+  }
 
   drawAllCurves(); // DEBUG
   visualizeCrossingPoints(); // DEBUG
 
   let automatedTourActive = false;
 
-  // Create cylinder
+  // Create Toggle cylinder
   const toggleCylinder = BABYLON.MeshBuilder.CreateCylinder(
     "toggleCylinder",
     { diameter: 0.5, height: 1 },
     scene
   );
   toggleCylinder.position = new BABYLON.Vector3(-4, 0.5, 4);
-
-  // Materials
   const redMat = new BABYLON.StandardMaterial("redMat", scene);
   redMat.diffuseColor = new BABYLON.Color3(1, 0, 0);
-
   const greenMat = new BABYLON.StandardMaterial("greenMat", scene);
   greenMat.diffuseColor = new BABYLON.Color3(0, 1, 0);
-
-  // Set initial material
   toggleCylinder.material = redMat;
 
-  // Enable pointer interactions
   toggleCylinder.actionManager = new BABYLON.ActionManager(scene);
   toggleCylinder.actionManager.registerAction(
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
@@ -341,49 +408,33 @@ const createScene = async function() {
     })
   );
 
-
-    
-    // const bgMusic = new BABYLON.Sound('mySong', '/DivKid.mp3', scene, null, {
-    // loop: true,
-    // autoplay: true
-    // });
-
-
-
   window.addEventListener("keydown", (event) => {
+    // this is inside the create function so it has access to the travel Functions
     const key = event.key.toLowerCase();
 
     if (key === "q") {
       travelToNextStation();
-      //stationSounds[currentStationIndex].play();
-      //bgMusic.play();
-     // oneTrackFile.play();
     } else if (key === "e") {
       travelToPriorStation();
+    } else if (key === "s" && !animationInProgress) {
+      avatarNarration();
     }
   });
-
-  engine.runRenderLoop(function() {
-    if (animationInProgress) {
-      t += engine.getDeltaTime() / 1000 / duration;
-      if (t > 1) {
-        t = 1;
-        animationInProgress = false;
-
-        if (automatedTourActive) {
-        startAutomatedTour(); // This can only start after the next point is reached 
-      }
-      }
-
-      const newPos = getBezierPoint(t, currentControlPoints);
-      sphere.position.copyFrom(newPos);
-    }
-    scene.render();
-  });
-
-  window.addEventListener("resize", () => engine.resize());
-
   return scene;
-};
+}; // this is the end of createScene() Function
 
-const scene = await createScene();
+window.addEventListener("resize", () => engine.resize());
+
+(async () => {
+  scene = await createScene();
+})();
+
+engine.runRenderLoop(() => {
+  if (scene) {
+    for (const anim of activeAnimations) {
+      anim();
+    }
+
+    scene.render();
+  }
+});
