@@ -38,19 +38,33 @@ const createScene = async function () {
 
   BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene);
 
-  const campusTaxiParameters = await BABYLON.SceneLoader.ImportMeshAsync(
+  const campusTaxi = await BABYLON.SceneLoader.ImportMeshAsync(
     null,
     "/assets/meshes/UFO.glb",
     null,
     scene
   );
 
-  const campusTaxiMesh = campusTaxiParameters.meshes[0];
+  const campusTaxiMesh = campusTaxi.meshes[0];
   campusTaxiMesh.position = new BABYLON.Vector3(1, 4, 2);
   campusTaxiMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
-  const animationGroups = campusTaxiParameters.animationGroups;
+  const animationGroups = campusTaxi.animationGroups;
   let animationSpeedWhileIdle = 2;
   let animationSpeedWhileTraveling = 15;
+
+  const avatarHologram = await BABYLON.SceneLoader.ImportMeshAsync(
+    null,
+    "/assets/meshes/avatarHologram.glb",
+    null,
+    scene
+  );
+
+  const avatarMesh = avatarHologram.meshes[0];
+  avatarMesh.parent = campusTaxiMesh;
+  avatarMesh.position = new BABYLON.Vector3(0, 1, 0);
+  avatarMesh.scaling = new BABYLON.Vector3(0.8, 0.8, 0.8);
+  avatarMesh.setEnabled(false);
+  //avatarMesh.rotation.y = Math.PI / 2;
 
   // // stop all animations
   //animationGroups.forEach(animation => animation.stop());
@@ -61,19 +75,8 @@ const createScene = async function () {
   // console.log(`Animation ${index}: Name = ${group.name}`);
   // });
 
-  //animationGroups[0].start(true);
-  //animationGroups[0].speedRatio = animationSpeedWhileIdle;
-  //animationGroups[0].stop();
-
-  //   if (!animationInProgress){
-  //   animationGroups[0].speedRatio = animationSpeedWhileIdle;
-  // }
-  // else {
-
-  //   animationGroups[0].speedRatio = animationSpeedWhileTraveling;
-  //   }
-
   const stationSoundPaths = [
+    "/assets/AvatarNarrations/Intro.mp3",
     "/assets/AvatarNarrations/One.mp3",
     "/assets/AvatarNarrations/Two.mp3",
     "/assets/AvatarNarrations/Three.mp3",
@@ -127,7 +130,7 @@ const createScene = async function () {
   const travelDurations = [
     // Need to be adjusted
     1, // 0 - 1
-    4, // 1 - 2
+    2, // 1 - 2
     1,
     2,
     3,
@@ -221,19 +224,31 @@ const createScene = async function () {
       console.warn("No sound for station", currentStationIndex);
       return;
     }
+
+    avatarMesh.setEnabled(true);
+    await delay(300);
     sound.play();
     await new Promise((resolve) => {
       sound.onEndedObservable.add(() => {
         resolve();
       });
     });
-
+    avatarMesh.setEnabled(false);
+    await delay(300);
     // DO STH after Narration has ended
+    if (automatedTourActive) {
+      travelToNextStation();
+    }
   }
 
   async function startAutomatedTour() {
-    animationInProgress = false;
-    travelToNextStation();
+    //animationInProgress = false;
+    // Intro Narration here
+    avatarNarration();
+
+    // REST OF AUTOMATED TOUR SETUP LOGIC
+
+    //travelToNextStation();
   }
 
   function travelToNextStation() {
@@ -252,10 +267,14 @@ const createScene = async function () {
         mesh: campusTaxiMesh,
         controlPoints: currentControlPoints,
         duration: travelDurations[currentStationIndex],
-        onComplete: () => {
-          animationInProgress = false;
-          currentStationIndex++;
-        },
+        currentStationIndexModifier: 1,
+        //onComplete: () => {
+        // animationInProgress = false;
+        // currentStationIndex++;
+        // if (automatedTourActive){
+        //   avatarNarration();
+        // }
+        // },
       });
     }
   }
@@ -282,14 +301,10 @@ const createScene = async function () {
         mesh: campusTaxiMesh,
         controlPoints: currentControlPoints,
         duration: travelDurations[currentStationIndex - 1],
-        onComplete: () => {
-          console.log("Animation finished!");
-          if (automatedTourActive) {
-            startAutomatedTour();
-          }
-          animationInProgress = false;
-          currentStationIndex--;
-        },
+        currentStationIndexModifier: -1,
+        //onComplete: () => {
+        //console.log("Animation finished!");
+        //},
       });
     }
   }
@@ -298,7 +313,8 @@ const createScene = async function () {
     mesh,
     controlPoints,
     duration,
-    onComplete = () => {},
+    currentStationIndexModifier,
+    //onComplete = () => {},
   }) {
     let t = 0;
     animationGroups[0].speedRatio = animationSpeedWhileTraveling;
@@ -317,8 +333,17 @@ const createScene = async function () {
           activeAnimations.splice(index, 1);
         }
 
-        onComplete(); // trigger the callback
+        // onComplete: () => {
+        // This happens after the animation
+        console.log("Animation finished!");
         animationGroups[0].speedRatio = animationSpeedWhileIdle;
+        animationInProgress = false;
+        currentStationIndex += currentStationIndexModifier;
+        if (automatedTourActive) {
+          avatarNarration();
+        }
+        //} // trigger the callback
+
         return;
       }
 
@@ -335,7 +360,7 @@ const createScene = async function () {
 
   let automatedTourActive = false;
 
-  // Create Toggle cylinder
+  // Create Toggle cylinder for Automated Tour
   const toggleCylinder = BABYLON.MeshBuilder.CreateCylinder(
     "toggleCylinder",
     { diameter: 0.5, height: 1 },
