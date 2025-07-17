@@ -1,6 +1,7 @@
 import * as BABYLON from "@babylonjs/core"; // this is wrong
 import * as GUI from "@babylonjs/gui";
 import * as LOADERS from "@babylonjs/loaders";
+import { Inspector } from "@babylonjs/inspector";
 
 //import oneTrack from 'public/assets/AvatarNarrations/Two.mp3';
 
@@ -22,9 +23,9 @@ const createScene = async function () {
 
   const camera = new BABYLON.ArcRotateCamera(
     "camera",
-    Math.PI / 2,
     Math.PI / 3,
-    12,
+    Math.PI / 3,
+    25,
     new BABYLON.Vector3(0, 1, 0),
     scene
   );
@@ -40,7 +41,7 @@ const createScene = async function () {
 
   const campusTaxi = await BABYLON.SceneLoader.ImportMeshAsync(
     null,
-    "/assets/meshes/UFO.glb",
+    "/assets/meshes/TAXI.glb",
     null,
     scene
   );
@@ -48,9 +49,17 @@ const createScene = async function () {
   const campusTaxiMesh = campusTaxi.meshes[0];
   campusTaxiMesh.position = new BABYLON.Vector3(1, 4, 2);
   campusTaxiMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
+  campusTaxiMesh.rotation.z = Math.PI / 2;
   const animationGroups = campusTaxi.animationGroups;
   let animationSpeedWhileIdle = 2;
   let animationSpeedWhileTraveling = 15;
+
+  // const coveIsland = await BABYLON.SceneLoader.ImportMeshAsync(
+  //   null,
+  //   "/assets/meshes/coveIsland.glb",
+  //   null,
+  //   scene
+  // );
 
   const avatarHologram = await BABYLON.SceneLoader.ImportMeshAsync(
     null,
@@ -67,7 +76,7 @@ const createScene = async function () {
   //avatarMesh.rotation.y = Math.PI / 2;
 
   // // stop all animations
-  //animationGroups.forEach(animation => animation.stop());
+  animationGroups.forEach((animation) => animation.start());
 
   // // Expose Animation Number and Index
   // console.log("Number of animations:", animationGroups.length);
@@ -103,10 +112,10 @@ const createScene = async function () {
     new BABYLON.Vector3(5, 1, -3), // Station 3
   ];
 
-  const stationCrossingPoints = {
-    0: [new BABYLON.Vector3(1, 2, 0), new BABYLON.Vector3(3, 3, 2)],
+  const crossingPointsSTS = {
+    0: [new BABYLON.Vector3(1, 2, 0), new BABYLON.Vector3(3, 3, 2)], // From Station 0 to Station 1
     1: [
-      new BABYLON.Vector3(4, 1, 1),
+      new BABYLON.Vector3(4, 1, 1), // From Station 1 to Station 0
       new BABYLON.Vector3(5, 2, 3),
       new BABYLON.Vector3(6, 2, 4),
     ],
@@ -116,6 +125,22 @@ const createScene = async function () {
       new BABYLON.Vector3(1, 2, 0),
     ],
   };
+
+  const crossingPointsSTC = {
+    0: [new BABYLON.Vector3(1, 2, 0), new BABYLON.Vector3(3, 3, 2)], // From Station 0 to Center
+    1: [
+      new BABYLON.Vector3(4, 1, 1), // From Station 1 to Center
+      new BABYLON.Vector3(5, 5, 3),
+      new BABYLON.Vector3(6, 2, 8),
+    ],
+    2: [
+      new BABYLON.Vector3(8, 3, 1),
+      new BABYLON.Vector3(5, 4, 3),
+      new BABYLON.Vector3(1, 0, 0),
+    ],
+  };
+
+  const centerPoint = new BABYLON.Vector3(0, 8, 0);
 
   // DEBUG Color palette to cycle through for lines and crossing points
   const lineColors = [
@@ -127,7 +152,17 @@ const createScene = async function () {
     new BABYLON.Color3(0, 1, 1), // Cyan
   ];
 
-  const travelDurations = [
+  const travelDurationsSTS = [
+    // Need to be adjusted
+    1, // 0 - 1
+    2, // 1 - 2
+    1,
+    2,
+    3,
+    4,
+  ];
+
+  const travelDurationsSTC = [
     // Need to be adjusted
     1, // 0 - 1
     2, // 1 - 2
@@ -138,7 +173,7 @@ const createScene = async function () {
   ];
 
   let currentStationIndex = 0;
-  let currentControlPoints = [];
+  let crossingPointsArray = [];
 
   let animationInProgress = false;
   let t = 0;
@@ -161,13 +196,13 @@ const createScene = async function () {
   }
 
   // General Bezier point calculator
-  function getBezierPoint(t, controlPoints) {
-    const n = controlPoints.length - 1;
+  function getBezierPoint(t, crossingPoints) {
+    const n = crossingPoints.length - 1;
     let point = BABYLON.Vector3.Zero();
     for (let i = 0; i <= n; i++) {
       const coef =
         binomialCoefficient(n, i) * Math.pow(1 - t, n - i) * Math.pow(t, i);
-      point = point.add(controlPoints[i].scale(coef));
+      point = point.add(crossingPoints[i].scale(coef));
     }
     return point;
   }
@@ -176,15 +211,15 @@ const createScene = async function () {
   const allCurveLines = [];
   function drawAllCurves() {
     for (let i = 0; i < stations.length - 1; i++) {
-      const controlPoints = [
+      const crossingPoints = [
         stations[i].clone(),
-        ...(stationCrossingPoints[i] || []), // spreads my nested array of points into multiple arrays with end and start point
+        ...(crossingPointsSTS[i] || []), // spreads my nested array of points into multiple arrays with end and start point
         stations[i + 1].clone(),
       ];
 
       const points = [];
       for (let step = 0; step <= 1; step += 0.02) {
-        points.push(getBezierPoint(step, controlPoints));
+        points.push(getBezierPoint(step, crossingPoints));
       }
 
       const line = BABYLON.MeshBuilder.CreateLines(
@@ -201,7 +236,7 @@ const createScene = async function () {
   function visualizeCrossingPoints() {
     for (let i = 0; i < stations.length - 1; i++) {
       const color = lineColors[i % lineColors.length];
-      const points = stationCrossingPoints[i] || [];
+      const points = crossingPointsSTS[i] || [];
 
       points.forEach((point, idx) => {
         const sphere = BABYLON.MeshBuilder.CreateSphere(
@@ -217,6 +252,48 @@ const createScene = async function () {
       });
     }
   }
+
+  // DEBUG Visualize Stations Points
+  function visualizeStationPoints() {
+    for (let i = 0; i < stations.length; i++) {
+      // Create the sphere
+      const sphere = BABYLON.MeshBuilder.CreateSphere(
+        "sphere" + i,
+        { diameter: 1 },
+        scene
+      );
+
+      // Set the position from the array
+      sphere.position = stations[i];
+
+      // Create a new material with a random color
+      const mat = new BABYLON.StandardMaterial("mat" + i, scene);
+      mat.diffuseColor = new BABYLON.Color3(
+        Math.random(),
+        Math.random(),
+        Math.random()
+      );
+      // Assign the material to the sphere
+      sphere.material = mat;
+    }
+  }
+  // DEBUG
+  function visualizeCenterPoint() {
+    const sphere = BABYLON.MeshBuilder.CreateSphere(
+      "centerPoint",
+      { diameter: 1 },
+      scene
+    );
+    sphere.position = centerPoint;
+    const blackMat = new BABYLON.StandardMaterial("blackMat", scene);
+    blackMat.diffuseColor = new BABYLON.Color3(0, 0, 0); // RGB = (0, 0, 0) is black
+    sphere.material = blackMat;
+  }
+
+  drawAllCurves(); // DEBUG
+  visualizeCrossingPoints(); // DEBUG
+  visualizeStationPoints(); // DEBUG
+  visualizeCenterPoint(); // DEBUG
 
   async function avatarNarration() {
     const sound = stationSounds[currentStationIndex];
@@ -257,16 +334,16 @@ const createScene = async function () {
       t = 0;
 
       // Forward travel: crossing points as is
-      currentControlPoints = [
-        stations[currentStationIndex].clone(),
-        ...(stationCrossingPoints[currentStationIndex] || []),
+      crossingPointsArray = [
+        stations[currentStationIndex].clone(), // you use this in animations because you dont want the actual vector to change during animation and if it changes from an outside function we are not phased by it
+        ...(crossingPointsSTS[currentStationIndex] || []),
         stations[currentStationIndex + 1].clone(),
       ];
 
       animateAlongBezier({
         mesh: campusTaxiMesh,
-        controlPoints: currentControlPoints,
-        duration: travelDurations[currentStationIndex],
+        crossingPoints: crossingPointsArray,
+        duration: travelDurationsSTS[currentStationIndex],
         currentStationIndexModifier: 1,
         //onComplete: () => {
         // animationInProgress = false;
@@ -286,12 +363,12 @@ const createScene = async function () {
 
       // Backward travel: reverse crossing points
       const reversedCrossingPoints = (
-        stationCrossingPoints[currentStationIndex - 1] || []
+        crossingPointsSTS[currentStationIndex - 1] || []
       )
         .slice()
         .reverse();
 
-      currentControlPoints = [
+      crossingPointsArray = [
         stations[currentStationIndex].clone(),
         ...reversedCrossingPoints,
         stations[currentStationIndex - 1].clone(),
@@ -299,8 +376,9 @@ const createScene = async function () {
 
       animateAlongBezier({
         mesh: campusTaxiMesh,
-        controlPoints: currentControlPoints,
-        duration: travelDurations[currentStationIndex - 1],
+        crossingPoints: crossingPointsArray,
+        //duration: travelDurationsSTS[currentStationIndex - 1],
+        duration: travelDurationsSTS[currentStationIndex - 1],
         currentStationIndexModifier: -1,
         //onComplete: () => {
         //console.log("Animation finished!");
@@ -309,12 +387,70 @@ const createScene = async function () {
     }
   }
 
+  function travelToSpecificStation(stationIndexToTravelToString) {
+    if (!campusTaxiMesh.position.equals(centerPoint)) {
+      const stationIndexToTravelTo = parseInt(stationIndexToTravelToString);
+      console.log(`[DEBUG] Key pressed: ${stationIndexToTravelToString}`);
+      travelSTC(() => {
+        travelCTS(stationIndexToTravelTo); // This is my callback that gets called OnComplete in the code
+      });
+    }
+  }
+
+  function travelSTC(travelCTSFunction) {
+    if (!animationInProgress) {
+      animationInProgress = true;
+      t = 0;
+
+      crossingPointsArray = [
+        stations[currentStationIndex].clone(),
+        ...(crossingPointsSTC[currentStationIndex] || []),
+        centerPoint,
+      ];
+
+      animateAlongBezier({
+        mesh: campusTaxiMesh,
+        crossingPoints: crossingPointsArray,
+        duration: travelDurationsSTC[currentStationIndex],
+        currentStationIndexModifier: 9 - currentStationIndex, // Center is Station 9 and should be in an array
+        thisFunctionisCalledAfterAnimationEnds: travelCTSFunction,
+      });
+    }
+  }
+
+  function travelCTS(stationIndexToTravelTo) {
+    console.log("tracelCTS called");
+    if (!animationInProgress) {
+      animationInProgress = true;
+      t = 0;
+
+      const reversedCrossingPointsSTC = (
+        crossingPointsSTC[stationIndexToTravelTo] || []
+      )
+        .slice()
+        .reverse();
+
+      crossingPointsArray = [
+        centerPoint,
+        ...reversedCrossingPointsSTC,
+        stations[stationIndexToTravelTo + 1].clone(),
+      ];
+
+      animateAlongBezier({
+        mesh: campusTaxiMesh,
+        crossingPoints: crossingPointsArray,
+        duration: travelDurationsSTC[stationIndexToTravelTo],
+        currentStationIndexModifier: stationIndexToTravelTo - 9,
+      });
+    }
+  }
+
   function animateAlongBezier({
     mesh,
-    controlPoints,
+    crossingPoints,
     duration,
     currentStationIndexModifier,
-    //onComplete = () => {},
+    thisFunctionisCalledAfterAnimationEnds = () => {}, // It means if the caller does NOT provide an onComplete function, then onComplete will default to an empty function () => {}
   }) {
     let t = 0;
     animationGroups[0].speedRatio = animationSpeedWhileTraveling;
@@ -323,8 +459,9 @@ const createScene = async function () {
       t += engine.getDeltaTime() / 1000 / duration;
 
       if (t >= 1) {
+        // animation has finished if this is true
         t = 1;
-        const newPos = getBezierPoint(t, controlPoints);
+        const newPos = getBezierPoint(t, crossingPoints);
         mesh.position.copyFrom(newPos);
 
         // Cleanup: remove this animation from the array
@@ -333,12 +470,17 @@ const createScene = async function () {
           activeAnimations.splice(index, 1);
         }
 
-        // onComplete: () => {
-        // This happens after the animation
-        console.log("Animation finished!");
         animationGroups[0].speedRatio = animationSpeedWhileIdle;
         animationInProgress = false;
         currentStationIndex += currentStationIndexModifier;
+
+        console.log("Animation finished!");
+
+        if (typeof thisFunctionisCalledAfterAnimationEnds === "function") {
+          console.log(`callback activated`);
+          thisFunctionisCalledAfterAnimationEnds(); // trigger travelCTS when done
+        }
+
         if (automatedTourActive) {
           avatarNarration();
         }
@@ -347,16 +489,13 @@ const createScene = async function () {
         return;
       }
 
-      const newPos = getBezierPoint(t, controlPoints);
+      const newPos = getBezierPoint(t, crossingPoints);
       mesh.position.copyFrom(newPos);
     };
 
     // Register this animation to be called each frame
     activeAnimations.push(animationLoop);
   }
-
-  drawAllCurves(); // DEBUG
-  visualizeCrossingPoints(); // DEBUG
 
   let automatedTourActive = false;
 
@@ -434,6 +573,7 @@ const createScene = async function () {
   );
 
   window.addEventListener("keydown", (event) => {
+    // maybe make a switch statment here?
     // this is inside the create function so it has access to the travel Functions
     const key = event.key.toLowerCase();
 
@@ -443,6 +583,8 @@ const createScene = async function () {
       travelToPriorStation();
     } else if (key === "s" && !animationInProgress) {
       avatarNarration();
+    } else if (/^[0-9]$/.test(key)) {
+      travelToSpecificStation(key); // Optional: call your function with the key
     }
   });
   return scene;
@@ -463,3 +605,5 @@ engine.runRenderLoop(() => {
     scene.render();
   }
 });
+
+Inspector.Show(scene, {});
