@@ -178,7 +178,6 @@ const createScene = async function () {
   let currentStationIndex = 0;
   let crossingPointsArray = [];
   let travelForward = true; // for direction of travel
-
   let animationInProgress = false;
   let t = 0;
 
@@ -422,18 +421,19 @@ const createScene = async function () {
     if (!animationInProgress) {
       animationInProgress = true;
       t = 0;
-
-      const reversedCrossingPointsSTC = (
+      const currentCrossingPointsSTC =
+        crossingPointsSTC[currentStationIndex] || [];
+      const currentCrossingPointsCTS = (
         crossingPointsSTC[stationIndexToTravelTo] || []
       )
         .slice()
         .reverse();
 
-      crossingPointsArray = [
+      const crossingPointsArray = [
         stations[currentStationIndex].clone(), // start
-        ...(crossingPointsSTC[currentStationIndex] || []),
-        centerPoint, // + new BABYLON.Vector3(0, 10, 0),
-        ...reversedCrossingPointsSTC, // all points in between
+        ...currentCrossingPointsSTC,
+        centerPoint,
+        ...currentCrossingPointsCTS,
         stations[stationIndexToTravelTo].clone(), // end
       ];
 
@@ -441,8 +441,7 @@ const createScene = async function () {
         mesh: campusTaxiMesh,
         crossingPoints: crossingPointsArray,
         duration: travelDurationsSTC[currentStationIndex],
-        destination: stationIndexToTravelTo, // Center is Station 9 and should be in an array --> Define Center point with a small offset so the CTS doestn trigger when we want to move to the center only
-        //thisFunctionisCalledAfterAnimationEnds: travelCTSFunction,
+        destination: stationIndexToTravelTo,
       });
     }
   }
