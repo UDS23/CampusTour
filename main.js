@@ -105,17 +105,20 @@ const createScene = async function () {
   });
   console.log("loaded Sounds:", stationSounds);
 
+  const centerPoint = new BABYLON.Vector3(0, 20, 0);
+
   const stations = [
     campusTaxiMesh.position.clone(), // Station 0 Start
     new BABYLON.Vector3(4, 1, 4), // Station 1
     new BABYLON.Vector3(8, 1, 0), // Station 2
     new BABYLON.Vector3(5, 1, -3), // Station 3
+    centerPoint.clone().subtract(new BABYLON.Vector3(0, 10, 0)), // Station 4 and should be 9 in the future
   ];
 
-  const crossingPointsSTS = {
+  const crossingPointsNS = {
     0: [new BABYLON.Vector3(1, 2, 0), new BABYLON.Vector3(3, 3, 2)], // From Station 0 to Station 1
     1: [
-      new BABYLON.Vector3(4, 1, 1), // From Station 1 to Station 0
+      new BABYLON.Vector3(4, 1, 1), // From Station 1 to Station 2
       new BABYLON.Vector3(5, 2, 3),
       new BABYLON.Vector3(6, 2, 4),
     ],
@@ -140,8 +143,6 @@ const createScene = async function () {
     ],
   };
 
-  const centerPoint = new BABYLON.Vector3(0, 8, 0);
-
   // DEBUG Color palette to cycle through for lines and crossing points
   const lineColors = [
     new BABYLON.Color3(1, 0, 0), // Red
@@ -152,7 +153,8 @@ const createScene = async function () {
     new BABYLON.Color3(0, 1, 1), // Cyan
   ];
 
-  const travelDurationsSTS = [
+  const travelDurationsNS = [
+    // Station To Station
     // Need to be adjusted
     1, // 0 - 1
     2, // 1 - 2
@@ -163,17 +165,19 @@ const createScene = async function () {
   ];
 
   const travelDurationsSTC = [
+    // Station to Center
     // Need to be adjusted
-    1, // 0 - 1
-    2, // 1 - 2
-    1,
-    2,
-    3,
+    4, // 0 - 1
+    4, // 1 - 2
+    4,
+    4,
+    4,
     4,
   ];
 
   let currentStationIndex = 0;
   let crossingPointsArray = [];
+  let travelForward = true; // for direction of travel
 
   let animationInProgress = false;
   let t = 0;
@@ -213,7 +217,7 @@ const createScene = async function () {
     for (let i = 0; i < stations.length - 1; i++) {
       const crossingPoints = [
         stations[i].clone(),
-        ...(crossingPointsSTS[i] || []), // spreads my nested array of points into multiple arrays with end and start point
+        ...(crossingPointsNS[i] || []), // spreads my nested array of points into multiple arrays with end and start point
         stations[i + 1].clone(),
       ];
 
@@ -236,7 +240,7 @@ const createScene = async function () {
   function visualizeCrossingPoints() {
     for (let i = 0; i < stations.length - 1; i++) {
       const color = lineColors[i % lineColors.length];
-      const points = crossingPointsSTS[i] || [];
+      const points = crossingPointsNS[i] || [];
 
       points.forEach((point, idx) => {
         const sphere = BABYLON.MeshBuilder.CreateSphere(
@@ -328,98 +332,93 @@ const createScene = async function () {
     //travelToNextStation();
   }
 
-  function travelToNextStation() {
-    if (!animationInProgress && currentStationIndex < stations.length - 1) {
-      animationInProgress = true;
-      t = 0;
-
-      // Forward travel: crossing points as is
-      crossingPointsArray = [
-        stations[currentStationIndex].clone(), // you use this in animations because you dont want the actual vector to change during animation and if it changes from an outside function we are not phased by it
-        ...(crossingPointsSTS[currentStationIndex] || []),
-        stations[currentStationIndex + 1].clone(),
-      ];
-
-      animateAlongBezier({
-        mesh: campusTaxiMesh,
-        crossingPoints: crossingPointsArray,
-        duration: travelDurationsSTS[currentStationIndex],
-        currentStationIndexModifier: 1,
-        //onComplete: () => {
-        // animationInProgress = false;
-        // currentStationIndex++;
-        // if (automatedTourActive){
-        //   avatarNarration();
-        // }
-        // },
-      });
-    }
-  }
-
-  function travelToPriorStation() {
-    if (!animationInProgress && currentStationIndex > 0) {
-      animationInProgress = true;
-      t = 0;
-
-      // Backward travel: reverse crossing points
-      const reversedCrossingPoints = (
-        crossingPointsSTS[currentStationIndex - 1] || []
-      )
-        .slice()
-        .reverse();
-
-      crossingPointsArray = [
-        stations[currentStationIndex].clone(),
-        ...reversedCrossingPoints,
-        stations[currentStationIndex - 1].clone(),
-      ];
-
-      animateAlongBezier({
-        mesh: campusTaxiMesh,
-        crossingPoints: crossingPointsArray,
-        //duration: travelDurationsSTS[currentStationIndex - 1],
-        duration: travelDurationsSTS[currentStationIndex - 1],
-        currentStationIndexModifier: -1,
-        //onComplete: () => {
-        //console.log("Animation finished!");
-        //},
-      });
-    }
-  }
-
-  function travelToSpecificStation(stationIndexToTravelToString) {
-    if (!campusTaxiMesh.position.equals(centerPoint)) {
-      const stationIndexToTravelTo = parseInt(stationIndexToTravelToString);
-      console.log(`[DEBUG] Key pressed: ${stationIndexToTravelToString}`);
-      travelSTC(() => {
-        travelCTS(stationIndexToTravelTo); // This is my callback that gets called OnComplete in the code
-      });
-    }
-  }
-
-  function travelSTC(travelCTSFunction) {
+  function travelToNearbyStation() {
     if (!animationInProgress) {
       animationInProgress = true;
       t = 0;
+      let destination = 0;
+      let crossingPointsBetweenStations;
+
+      if (travelForward) {
+        if (currentStationIndex === stations.length - 1) {
+          // Loop from last back to first
+          destination = 0;
+        } else {
+          destination = currentStationIndex + 1;
+        }
+
+        crossingPointsBetweenStations =
+          crossingPointsNS[currentStationIndex] || [];
+      } else {
+        if (currentStationIndex === 0) {
+          // Loop from first back to last
+          destination = stations.length - 1;
+        } else {
+          destination = currentStationIndex - 1;
+        }
+
+        crossingPointsBetweenStations = (crossingPointsNS[destination] || [])
+          .slice()
+          .reverse();
+      }
 
       crossingPointsArray = [
-        stations[currentStationIndex].clone(),
-        ...(crossingPointsSTC[currentStationIndex] || []),
-        centerPoint,
+        stations[currentStationIndex].clone(), // you use this in animations because you dont want the actual vector to change during animation and if it changes from an outside function we are not phased by it
+        ...crossingPointsBetweenStations,
+        stations[destination].clone(),
       ];
 
       animateAlongBezier({
         mesh: campusTaxiMesh,
         crossingPoints: crossingPointsArray,
-        duration: travelDurationsSTC[currentStationIndex],
-        currentStationIndexModifier: 9 - currentStationIndex, // Center is Station 9 and should be in an array
-        thisFunctionisCalledAfterAnimationEnds: travelCTSFunction,
+        duration: travelDurationsNS[currentStationIndex],
+        destination: destination,
       });
     }
   }
 
-  function travelCTS(stationIndexToTravelTo) {
-    console.log("tracelCTS called");
+  // function travelToPriorStation() {
+  //   if (!animationInProgress && currentStationIndex > 0) {
+  //     animationInProgress = true;
+  //     t = 0;
+
+  //     // Backward travel: reverse crossing points
+  //     const reversedCrossingPoints = (
+  //       crossingPointsNS[currentStationIndex - 1] || []
+  //     )
+  //       .slice()
+  //       .reverse();
+
+  //     crossingPointsArray = [
+  //       stations[currentStationIndex].clone(),
+  //       ...reversedCrossingPoints,
+  //       stations[currentStationIndex - 1].clone(),
+  //     ];
+
+  //     animateAlongBezier({
+  //       mesh: campusTaxiMesh,
+  //       crossingPoints: crossingPointsArray,
+  //       //duration: travelDurationsNS[currentStationIndex - 1],
+  //       duration: travelDurationsNS[currentStationIndex - 1],
+  //       destination: currentStationIndex - 1,
+  //       //onComplete: () => {
+  //       //console.log("Animation finished!");
+  //       //},
+  //     });
+  //   }
+  // }
+
+  // function travelToSpecificStation(stationIndexToTravelTo) {
+  //   if (!campusTaxiMesh.position.equals(centerPoint)) {
+  //     console.log("station Index before travel = " + currentStationIndex);
+  //     travelSTC(stationIndexToTravelTo, () => {
+  //       travelCTS(stationIndexToTravelTo); // This is my callback that gets called OnComplete in the code
+  //     });
+  //   }
+  // }
+
+  function travelToSpecificStation(stationIndexToTravelTo) {
+    //), travelCTSFunction) {
     if (!animationInProgress) {
       animationInProgress = true;
       t = 0;
@@ -431,25 +430,55 @@ const createScene = async function () {
         .reverse();
 
       crossingPointsArray = [
-        centerPoint,
-        ...reversedCrossingPointsSTC,
-        stations[stationIndexToTravelTo + 1].clone(),
+        stations[currentStationIndex].clone(), // start
+        ...(crossingPointsSTC[currentStationIndex] || []),
+        centerPoint, // + new BABYLON.Vector3(0, 10, 0),
+        ...reversedCrossingPointsSTC, // all points in between
+        stations[stationIndexToTravelTo].clone(), // end
       ];
 
       animateAlongBezier({
         mesh: campusTaxiMesh,
         crossingPoints: crossingPointsArray,
-        duration: travelDurationsSTC[stationIndexToTravelTo],
-        currentStationIndexModifier: stationIndexToTravelTo - 9,
+        duration: travelDurationsSTC[currentStationIndex],
+        destination: stationIndexToTravelTo, // Center is Station 9 and should be in an array --> Define Center point with a small offset so the CTS doestn trigger when we want to move to the center only
+        //thisFunctionisCalledAfterAnimationEnds: travelCTSFunction,
       });
     }
   }
+
+  // function travelCTS(stationIndexToTravelTo) {
+  //   console.log("station Index at Center = " + currentStationIndex);
+  //   if (!animationInProgress) {
+  //     animationInProgress = true;
+  //     t = 0;
+
+  //     const reversedCrossingPointsSTC = (
+  //       crossingPointsSTC[stationIndexToTravelTo] || []
+  //     )
+  //       .slice()
+  //       .reverse();
+
+  //     crossingPointsArray = [
+  //       centerPoint,
+  //       ...reversedCrossingPointsSTC,
+  //       stations[stationIndexToTravelTo].clone(),
+  //     ];
+
+  //     animateAlongBezier({
+  //       mesh: campusTaxiMesh,
+  //       crossingPoints: crossingPointsArray,
+  //       duration: travelDurationsSTC[stationIndexToTravelTo],
+  //       destination: stationIndexToTravelTo,
+  //     });
+  //   }
+  // }
 
   function animateAlongBezier({
     mesh,
     crossingPoints,
     duration,
-    currentStationIndexModifier,
+    destination,
     thisFunctionisCalledAfterAnimationEnds = () => {}, // It means if the caller does NOT provide an onComplete function, then onComplete will default to an empty function () => {}
   }) {
     let t = 0;
@@ -461,7 +490,7 @@ const createScene = async function () {
       if (t >= 1) {
         // animation has finished if this is true
         t = 1;
-        const newPos = getBezierPoint(t, crossingPoints);
+        const newPos = getBezierPoint(t, crossingPoints); // this calculates the paths using the passed crossing points
         mesh.position.copyFrom(newPos);
 
         // Cleanup: remove this animation from the array
@@ -470,15 +499,21 @@ const createScene = async function () {
           activeAnimations.splice(index, 1);
         }
 
-        animationGroups[0].speedRatio = animationSpeedWhileIdle;
+        animationGroups[0].speedRatio = animationSpeedWhileIdle; // change animation speed while taxi is idle
         animationInProgress = false;
-        currentStationIndex += currentStationIndexModifier;
-
+        currentStationIndex = destination;
+        console.log("station Index after Travel = " + currentStationIndex);
         console.log("Animation finished!");
+        console.log("Taxi position = " + campusTaxiMesh.position);
+        console.log(centerPoint);
 
-        if (typeof thisFunctionisCalledAfterAnimationEnds === "function") {
+        if (
+          // We go in here when we reach the Center Point
+          typeof thisFunctionisCalledAfterAnimationEnds === "function" &&
+          campusTaxiMesh.position.equals(centerPoint)
+        ) {
           console.log(`callback activated`);
-          thisFunctionisCalledAfterAnimationEnds(); // trigger travelCTS when done
+          thisFunctionisCalledAfterAnimationEnds(); // trigger travelCTS when animation has finished (t = 0);
         }
 
         if (automatedTourActive) {
@@ -578,13 +613,15 @@ const createScene = async function () {
     const key = event.key.toLowerCase();
 
     if (key === "q") {
-      travelToNextStation();
+      travelForward = true;
+      travelToNearbyStation();
     } else if (key === "e") {
-      travelToPriorStation();
+      travelForward = false;
+      travelToNearbyStation();
     } else if (key === "s" && !animationInProgress) {
       avatarNarration();
-    } else if (/^[0-9]$/.test(key)) {
-      travelToSpecificStation(key); // Optional: call your function with the key
+    } else if (/^[0-9]$/.test(key) && parseInt(key) !== currentStationIndex) {
+      travelToSpecificStation(parseInt(key)); // Optional: call your function with the key
     }
   });
   return scene;
