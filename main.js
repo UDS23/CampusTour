@@ -156,10 +156,10 @@ const createScene = async function () {
   const travelDurationsNS = [
     // Station To Station
     // Need to be adjusted
-    1, // 0 - 1
+    2, // 0 - 1
     2, // 1 - 2
-    1,
-    2,
+    5,
+    5,
     3,
     4,
   ];
@@ -167,26 +167,138 @@ const createScene = async function () {
   const travelDurationsSTC = [
     // Station to Center
     // Need to be adjusted
-    4, // 0 - 1
-    4, // 1 - 2
-    4,
-    4,
+    10, // 0 - 1
+    5, // 1 - 2
+    10,
+    10,
     4,
     4,
   ];
 
-  let currentStationIndex = 0;
-  let crossingPointsArray = [];
-  let travelForward = true; // for direction of travel
-  let animationInProgress = false;
-  let t = 0;
+  const travelSpeedArray = {
+    0: [
+      { t: 0.0, value: 0.0 }, // Start - slow
+      { t: 0.05, value: 0.001 }, // Still slow
+      { t: 0.1, value: 0.005 }, // Tiny movement
+      { t: 0.15, value: 0.02 }, // Starting to pick up
+      { t: 0.2, value: 0.1 }, // Rapid acceleration
+      { t: 0.25, value: 0.3 }, // Speed burst
+      { t: 0.3, value: 0.42 }, // Slowing down
+      { t: 0.35, value: 0.48 }, // Middle slowdown
+      { t: 0.4, value: 0.5 }, // Peak of slowdown
+      { t: 0.45, value: 0.52 }, // Still slow
+      { t: 0.5, value: 0.58 }, // Starting to speed up
+      { t: 0.55, value: 0.7 }, // Acceleration
+      { t: 0.6, value: 0.9 }, // Speed burst again
+      { t: 0.9, value: 0.999 }, // Very slow
+      { t: 1.0, value: 1.0 }, // End
+    ],
+    1: [
+      { t: 0.0, value: 0.0 }, // Start - slow
+      { t: 0.05, value: 0.001 }, // Still slow
+      { t: 0.1, value: 0.005 }, // Tiny movement
+      { t: 0.15, value: 0.02 }, // Starting to pick up
+      { t: 0.2, value: 0.1 }, // Rapid acceleration
+      { t: 0.25, value: 0.3 }, // Speed burst
+      { t: 0.3, value: 0.42 }, // Slowing down
+      { t: 0.35, value: 0.48 }, // Middle slowdown
+      { t: 0.4, value: 0.5 }, // Peak of slowdown
+      { t: 0.45, value: 0.52 }, // Still slow
+      { t: 0.5, value: 0.58 }, // Starting to speed up
+      { t: 0.55, value: 0.7 }, // Acceleration
+      { t: 0.6, value: 0.9 }, // Speed burst again
+      { t: 0.9, value: 0.999 }, // Very slow
+      { t: 1.0, value: 1.0 }, // End
+    ],
+    2: [
+      { t: 0.0, value: 0.0 }, // Start - slow
+      { t: 0.05, value: 0.001 }, // Still slow
+      { t: 0.1, value: 0.005 }, // Tiny movement
+      { t: 0.15, value: 0.02 }, // Starting to pick up
+      { t: 0.2, value: 0.1 }, // Rapid acceleration
+      { t: 0.25, value: 0.3 }, // Speed burst
+      { t: 0.3, value: 0.42 }, // Slowing down
+      { t: 0.35, value: 0.48 }, // Middle slowdown
+      { t: 0.4, value: 0.5 }, // Peak of slowdown
+      { t: 0.45, value: 0.52 }, // Still slow
+      { t: 0.5, value: 0.58 }, // Starting to speed up
+      { t: 0.55, value: 0.7 }, // Acceleration
+      { t: 0.6, value: 0.9 }, // Speed burst again
+      { t: 0.9, value: 0.999 }, // Very slow
+      { t: 1.0, value: 1.0 }, // End
+    ],
+    3: [
+      { t: 0.0, value: 0.0 }, // Start - slow
+      { t: 0.05, value: 0.001 }, // Still slow
+      { t: 0.1, value: 0.005 }, // Tiny movement
+      { t: 0.15, value: 0.02 }, // Starting to pick up
+      { t: 0.2, value: 0.1 }, // Rapid acceleration
+      { t: 0.25, value: 0.3 }, // Speed burst
+      { t: 0.3, value: 0.42 }, // Slowing down
+      { t: 0.35, value: 0.48 }, // Middle slowdown
+      { t: 0.4, value: 0.5 }, // Peak of slowdown
+      { t: 0.45, value: 0.52 }, // Still slow
+      { t: 0.5, value: 0.58 }, // Starting to speed up
+      { t: 0.55, value: 0.7 }, // Acceleration
+      { t: 0.6, value: 0.9 }, // Speed burst again
+      { t: 0.9, value: 0.999 }, // Very slow
+      { t: 1.0, value: 1.0 }, // End
+    ],
+    4: [
+      { t: 0.0, value: 0.0 }, // Start - slow
+      { t: 0.05, value: 0.001 }, // Still slow
+      { t: 0.1, value: 0.005 }, // Tiny movement
+      { t: 0.15, value: 0.02 }, // Starting to pick up
+      { t: 0.2, value: 0.1 }, // Rapid acceleration
+      { t: 0.25, value: 0.3 }, // Speed burst
+      { t: 0.3, value: 0.42 }, // Slowing down
+      { t: 0.35, value: 0.48 }, // Middle slowdown
+      { t: 0.4, value: 0.5 }, // Peak of slowdown
+      { t: 0.45, value: 0.52 }, // Still slow
+      { t: 0.5, value: 0.58 }, // Starting to speed up
+      { t: 0.55, value: 0.7 }, // Acceleration
+      { t: 0.6, value: 0.9 }, // Speed burst again
+      { t: 0.9, value: 0.999 }, // Very slow
+      { t: 1.0, value: 1.0 }, // End
+    ],
+  };
 
-  //const duration = 2; // seconds
+  function catmullRom(t, p0, p1, p2, p3) {
+    const t2 = t * t;
+    const t3 = t2 * t;
 
-  function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return (
+      0.5 *
+      (2 * p1 +
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+    );
   }
 
+  function interpolateTravelSpeedCurve(t, curve) {
+    if (t <= curve[0].t) return curve[0].value;
+    if (t >= curve[curve.length - 1].t) return curve[curve.length - 1].value;
+
+    for (let i = 1; i < curve.length - 2; i++) {
+      const p0 = curve[i - 1];
+      const p1 = curve[i];
+      const p2 = curve[i + 1];
+      const p3 = curve[i + 2];
+
+      if (t <= p2.t) {
+        const localT = (t - p1.t) / (p2.t - p1.t);
+        return catmullRom(localT, p0.value, p1.value, p2.value, p3.value);
+      }
+    }
+
+    // Fallback to linear at the end because catmullRom needs at least 3 points to function
+    const last = curve.length - 1;
+    const a = curve[last - 1];
+    const b = curve[last];
+    const localT = (t - a.t) / (b.t - a.t);
+    return a.value + localT * (b.value - a.value);
+  }
   // Binomial coefficient for Bezier Curve
   function binomialCoefficient(n, i) {
     if (i === 0 || i === n) return 1;
@@ -199,15 +311,32 @@ const createScene = async function () {
   }
 
   // General Bezier point calculator
-  function getBezierPoint(t, crossingPoints) {
+  function getBezierPoint(duration, crossingPoints) {
     const n = crossingPoints.length - 1;
     let point = BABYLON.Vector3.Zero();
     for (let i = 0; i <= n; i++) {
       const coef =
-        binomialCoefficient(n, i) * Math.pow(1 - t, n - i) * Math.pow(t, i);
+        binomialCoefficient(n, i) *
+        Math.pow(1 - duration, n - i) *
+        Math.pow(duration, i);
       point = point.add(crossingPoints[i].scale(coef));
     }
     return point;
+  }
+
+  //console.log("travelSpeedVector =" + travelSpeedArrayToBezierVectors);
+  console.log("travelSpeedVector =" + binomialCoefficient());
+
+  let currentStationIndex = 0;
+  let crossingPointsArray = [];
+  let travelForward = true; // for direction of travel
+  let animationInProgress = false;
+  let t = 0;
+
+  //const duration = 2; // seconds
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // DEBUG Draw all curves at startup with different colors
@@ -487,9 +616,10 @@ const createScene = async function () {
       t += engine.getDeltaTime() / 1000 / duration;
 
       if (t >= 1) {
-        // animation has finished if this is true
+        // animation has finished if this is true and we make sure we are at the intended position. This is good practice in case the animation goes south
         t = 1;
-        const newPos = getBezierPoint(t, crossingPoints); // this calculates the paths using the passed crossing points
+        const easedT = easeCustom(t, travelSpeedArray[currentStationIndex]); // this is checked before we update the stationIndex
+        const newPos = getBezierPoint(easedT, crossingPoints);
         mesh.position.copyFrom(newPos);
 
         // Cleanup: remove this animation from the array
@@ -523,12 +653,26 @@ const createScene = async function () {
         return;
       }
 
-      const newPos = getBezierPoint(t, crossingPoints);
+      //const newPos = getBezierPoint(t, crossingPoints); // this is where we move the Taxi
+      const interpolatedSpeedValues = easeCustom(
+        t,
+        travelSpeedArray[currentStationIndex]
+      );
+      const newPos = getBezierPoint(interpolatedSpeedValues, crossingPoints);
       mesh.position.copyFrom(newPos);
     };
 
     // Register this animation to be called each frame
     activeAnimations.push(animationLoop);
+  }
+
+  function easeCustom(t, travelSpeedArrayForCurrentStation) {
+    const interpolatedSpeedValues = interpolateTravelSpeedCurve(
+      t,
+      travelSpeedArrayForCurrentStation
+    );
+    console.log("beziervectors for calculation = " + interpolatedSpeedValues);
+    return interpolatedSpeedValues;
   }
 
   let automatedTourActive = false;
