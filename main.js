@@ -53,6 +53,7 @@ const createScene = async function () {
   const animationGroups = campusTaxi.animationGroups;
   let animationSpeedWhileIdle = 2;
   let animationSpeedWhileTraveling = 15;
+  let travelSpeedIncrease = 1;
 
   // const coveIsland = await BABYLON.SceneLoader.ImportMeshAsync(
   //   null,
@@ -85,10 +86,12 @@ const createScene = async function () {
   // });
 
   const stationSoundPaths = [
-    "/assets/AvatarNarrations/Intro.mp3",
-    "/assets/AvatarNarrations/One.mp3",
-    "/assets/AvatarNarrations/Two.mp3",
-    "/assets/AvatarNarrations/Three.mp3",
+    "/assets/AvatarNarrations/00_Intro.mp3",
+    "/assets/AvatarNarrations/01_One.mp3",
+    "/assets/AvatarNarrations/02_Two.mp3",
+    "/assets/AvatarNarrations/03_Three.mp3",
+    "/assets/AvatarNarrations/00_Intro.mp3",
+    "/assets/AvatarNarrations/09_Outro.mp3",
   ];
 
   const stationSounds = [];
@@ -118,12 +121,12 @@ const createScene = async function () {
   const crossingPointsNS = {
     0: [new BABYLON.Vector3(1, 2, 0), new BABYLON.Vector3(3, 3, 2)], // From Station 0 to Station 1
     1: [
-      new BABYLON.Vector3(4, 1, 1), // From Station 1 to Station 2
+      new BABYLON.Vector3(8, 1, 5), // From Station 1 to Station 2
       new BABYLON.Vector3(5, 2, 3),
       new BABYLON.Vector3(6, 2, 4),
     ],
     2: [
-      new BABYLON.Vector3(8, 1, 1),
+      new BABYLON.Vector3(8, 1, 5),
       new BABYLON.Vector3(5, 7, 3),
       new BABYLON.Vector3(1, 2, 0),
     ],
@@ -132,12 +135,12 @@ const createScene = async function () {
   const crossingPointsSTC = {
     0: [new BABYLON.Vector3(1, 2, 0), new BABYLON.Vector3(3, 3, 2)], // From Station 0 to Center
     1: [
-      new BABYLON.Vector3(4, 1, 1), // From Station 1 to Center
+      new BABYLON.Vector3(4, 1, 5), // From Station 1 to Center
       new BABYLON.Vector3(5, 5, 3),
       new BABYLON.Vector3(6, 2, 8),
     ],
     2: [
-      new BABYLON.Vector3(8, 3, 1),
+      new BABYLON.Vector3(3, 3, 5),
       new BABYLON.Vector3(5, 4, 3),
       new BABYLON.Vector3(1, 0, 0),
     ],
@@ -177,20 +180,10 @@ const createScene = async function () {
 
   const travelSpeedArray = {
     0: [
-      { t: 0.0, value: 0.0 }, // Start - slow
-      { t: 0.05, value: 0.001 }, // Still slow
-      { t: 0.1, value: 0.005 }, // Tiny movement
-      { t: 0.15, value: 0.02 }, // Starting to pick up
-      { t: 0.2, value: 0.1 }, // Rapid acceleration
-      { t: 0.25, value: 0.3 }, // Speed burst
-      { t: 0.3, value: 0.42 }, // Slowing down
-      { t: 0.35, value: 0.48 }, // Middle slowdown
-      { t: 0.4, value: 0.5 }, // Peak of slowdown
-      { t: 0.45, value: 0.52 }, // Still slow
-      { t: 0.5, value: 0.58 }, // Starting to speed up
-      { t: 0.55, value: 0.7 }, // Acceleration
-      { t: 0.6, value: 0.9 }, // Speed burst again
-      { t: 0.9, value: 0.999 }, // Very slow
+      { t: 0.0, value: 0.0 }, // Start
+      { t: 0.25, value: 0.25 }, // 25% time → 25% distance
+      { t: 0.5, value: 0.5 }, // 50% time → 50% distance
+      { t: 0.75, value: 0.75 }, // 75% time → 75% distance
       { t: 1.0, value: 1.0 }, // End
     ],
     1: [
@@ -428,7 +421,12 @@ const createScene = async function () {
   visualizeCenterPoint(); // DEBUG
 
   async function avatarNarration() {
-    const sound = stationSounds[currentStationIndex];
+    let sound = stationSounds[currentStationIndex];
+    if (returnToPlattformNarration) {
+      sound = stationSounds[stationSounds.length - 1]; // to load the correct sound once we return to our station
+      automatedTourActive = false;
+      returnToPlattformNarration = false;
+    }
     if (!sound) {
       console.warn("No sound for station", currentStationIndex);
       return;
@@ -445,19 +443,15 @@ const createScene = async function () {
     avatarMesh.setEnabled(false);
     await delay(300);
     // DO STH after Narration has ended
-    if (automatedTourActive) {
-      travelToNextStation();
+    if (automatedTourActive && currentStationIndex < stations.length - 1) {
+      // when we are at the last station we go into else to change narration and end autoamted tour
+      travelForward = true;
+      travelToNearbyStation();
+    } else if (automatedTourActive) {
+      //automatedTourActive = false;
+      returnToPlattformNarration = true;
+      travelToNearbyStation();
     }
-  }
-
-  async function startAutomatedTour() {
-    //animationInProgress = false;
-    // Intro Narration here
-    avatarNarration();
-
-    // REST OF AUTOMATED TOUR SETUP LOGIC
-
-    //travelToNextStation();
   }
 
   function travelToNearbyStation() {
@@ -491,7 +485,7 @@ const createScene = async function () {
       }
 
       crossingPointsArray = [
-        stations[currentStationIndex].clone(), // you use this in animations because you dont want the actual vector to change during animation and if it changes from an outside function we are not phased by it
+        campusTaxiMesh.position.clone(), // you use this in animations because you dont want the actual vector to change during animation and if it changes from an outside function we are not phased by it
         ...crossingPointsBetweenStations,
         stations[destination].clone(),
       ];
@@ -504,46 +498,6 @@ const createScene = async function () {
       });
     }
   }
-
-  // function travelToPriorStation() {
-  //   if (!animationInProgress && currentStationIndex > 0) {
-  //     animationInProgress = true;
-  //     t = 0;
-
-  //     // Backward travel: reverse crossing points
-  //     const reversedCrossingPoints = (
-  //       crossingPointsNS[currentStationIndex - 1] || []
-  //     )
-  //       .slice()
-  //       .reverse();
-
-  //     crossingPointsArray = [
-  //       stations[currentStationIndex].clone(),
-  //       ...reversedCrossingPoints,
-  //       stations[currentStationIndex - 1].clone(),
-  //     ];
-
-  //     animateAlongBezier({
-  //       mesh: campusTaxiMesh,
-  //       crossingPoints: crossingPointsArray,
-  //       //duration: travelDurationsNS[currentStationIndex - 1],
-  //       duration: travelDurationsNS[currentStationIndex - 1],
-  //       destination: currentStationIndex - 1,
-  //       //onComplete: () => {
-  //       //console.log("Animation finished!");
-  //       //},
-  //     });
-  //   }
-  // }
-
-  // function travelToSpecificStation(stationIndexToTravelTo) {
-  //   if (!campusTaxiMesh.position.equals(centerPoint)) {
-  //     console.log("station Index before travel = " + currentStationIndex);
-  //     travelSTC(stationIndexToTravelTo, () => {
-  //       travelCTS(stationIndexToTravelTo); // This is my callback that gets called OnComplete in the code
-  //     });
-  //   }
-  // }
 
   function travelToSpecificStation(stationIndexToTravelTo) {
     //), travelCTSFunction) {
@@ -559,7 +513,7 @@ const createScene = async function () {
         .reverse();
 
       const crossingPointsArray = [
-        stations[currentStationIndex].clone(), // start
+        campusTaxiMesh.position.clone(), // start
         ...currentCrossingPointsSTC,
         centerPoint,
         ...currentCrossingPointsCTS,
@@ -575,33 +529,6 @@ const createScene = async function () {
     }
   }
 
-  // function travelCTS(stationIndexToTravelTo) {
-  //   console.log("station Index at Center = " + currentStationIndex);
-  //   if (!animationInProgress) {
-  //     animationInProgress = true;
-  //     t = 0;
-
-  //     const reversedCrossingPointsSTC = (
-  //       crossingPointsSTC[stationIndexToTravelTo] || []
-  //     )
-  //       .slice()
-  //       .reverse();
-
-  //     crossingPointsArray = [
-  //       centerPoint,
-  //       ...reversedCrossingPointsSTC,
-  //       stations[stationIndexToTravelTo].clone(),
-  //     ];
-
-  //     animateAlongBezier({
-  //       mesh: campusTaxiMesh,
-  //       crossingPoints: crossingPointsArray,
-  //       duration: travelDurationsSTC[stationIndexToTravelTo],
-  //       destination: stationIndexToTravelTo,
-  //     });
-  //   }
-  // }
-
   function animateAlongBezier({
     mesh,
     crossingPoints,
@@ -613,13 +540,14 @@ const createScene = async function () {
     animationGroups[0].speedRatio = animationSpeedWhileTraveling;
     // The per-frame animation function
     const animationLoop = () => {
-      t += engine.getDeltaTime() / 1000 / duration;
+      t += (engine.getDeltaTime() / 1000 / duration) * travelSpeedIncrease;
 
       if (t >= 1) {
         // animation has finished if this is true and we make sure we are at the intended position. This is good practice in case the animation goes south
         t = 1;
         const easedT = easeCustom(t, travelSpeedArray[currentStationIndex]); // this is checked before we update the stationIndex
         const newPos = getBezierPoint(easedT, crossingPoints);
+        //const newPos = stations[stationIndexToTravelTo];
         mesh.position.copyFrom(newPos);
 
         // Cleanup: remove this animation from the array
@@ -653,11 +581,12 @@ const createScene = async function () {
         return;
       }
 
-      //const newPos = getBezierPoint(t, crossingPoints); // this is where we move the Taxi
-      const interpolatedSpeedValues = easeCustom(
+      // this is where we move the Taxi
+      let interpolatedSpeedValues = easeCustom(
         t,
         travelSpeedArray[currentStationIndex]
       );
+      if (interpolatedSpeedValues < 0.0001) interpolatedSpeedValues = 0.0001; // to avoid an inital jerk because of positional jumps for the speed array.??
       const newPos = getBezierPoint(interpolatedSpeedValues, crossingPoints);
       mesh.position.copyFrom(newPos);
     };
@@ -676,6 +605,7 @@ const createScene = async function () {
   }
 
   let automatedTourActive = false;
+  let returnToPlattformNarration = false;
 
   // Create Toggle cylinder for Automated Tour
   const toggleCylinder = BABYLON.MeshBuilder.CreateCylinder(
@@ -740,12 +670,11 @@ const createScene = async function () {
     scene
   );
   startAutomatedTourBox.material.diffuseColor = new BABYLON.Color3(5, 3, 0); // Green
-
   startAutomatedTourBox.actionManager = new BABYLON.ActionManager(scene);
   startAutomatedTourBox.actionManager.registerAction(
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
       if (automatedTourActive) {
-        startAutomatedTour();
+        avatarNarration();
       }
     })
   );
@@ -763,6 +692,8 @@ const createScene = async function () {
       travelToNearbyStation();
     } else if (key === "s" && !animationInProgress) {
       avatarNarration();
+    } else if (key === "w") {
+      travelSpeedIncrease *= 2;
     } else if (/^[0-9]$/.test(key) && parseInt(key) !== currentStationIndex) {
       travelToSpecificStation(parseInt(key)); // Optional: call your function with the key
     }
@@ -786,4 +717,4 @@ engine.runRenderLoop(() => {
   }
 });
 
-Inspector.Show(scene, {});
+//Inspector.Show(scene, {});
