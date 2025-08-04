@@ -9,11 +9,11 @@
 
 Hotkeys:
 
-Q Next Station
-E Prior Station
-W Travel Speed Up
-S Narration
-"1"..."5" Specific Station
+1. Q Next Station
+2. E Prior Station
+3. W Travel Speed Up
+4. S Narration
+5. Keys "1"..."5" Travel to Specific Station
 
 Toggle box on the right to switch to automated tour mode
 Press box next to it to start automated tour
