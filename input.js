@@ -1,10 +1,20 @@
 import { avatarNarration } from "./main.js";
 import { travelToNearbyStation } from "./main.js";
 import { travelToSpecificStation } from "./main.js";
+import { stopAvatarNarration } from "./main.js";
 
 export function registerInputHandlers() {
   window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
+    console.log(avatarNarrationIsActive);
+    // Allow stopping narration with 's' regardless of scene load
+    if (key === "s" && avatarNarrationIsActive && sceneHasLoaded) {
+      stopAvatarNarration(); // or your function to stop narration
+      return;
+    }
+
+    // Ignore all other keypresses if the scene hasn't loaded or narration is not active
+    if (!sceneHasLoaded || avatarNarrationIsActive) return;
 
     switch (key) {
       case "q":

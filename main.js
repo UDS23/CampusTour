@@ -21,6 +21,8 @@ window.animationInProgress = false;
 let t = 0;
 let automatedTourActive = false;
 let returnToPlattformNarration = false;
+window.sceneHasLoaded = false;
+window.avatarNarrationIsActive = false;
 
 const animationGroups = [];
 const activeAnimations = [];
@@ -217,6 +219,7 @@ const createScene = async function () {
     loadAllDebugger(),
   ]);
 
+  sceneHasLoaded = true;
   console.log("Scene has been loaded");
 
   return scene;
@@ -412,6 +415,7 @@ export async function avatarNarration() {
   }
 
   avatarMesh.setEnabled(true);
+  avatarNarrationIsActive = true;
   await delayMyFunctionByMilliSeconds(300);
   sound.play();
   await new Promise((resolve) => {
@@ -420,16 +424,27 @@ export async function avatarNarration() {
     });
   });
   avatarMesh.setEnabled(false);
-  await deldelayMyFunctionByMilliSecondsay(300);
+  await delayMyFunctionByMilliSeconds(300);
+  avatarNarrationIsActive = false;
   // DO STH after Narration has ended
   if (automatedTourActive && currentStationIndex < stations.length - 1) {
     // when we are at the last station we go into else to change narration and end autoamted tour
+
     travelForward = true;
     travelToNearbyStation();
   } else if (automatedTourActive) {
     //automatedTourActive = false;
     returnToPlattformNarration = true;
     travelToNearbyStation();
+  }
+}
+
+export function stopAvatarNarration() {
+  for (const sound of stationSounds) {
+    if (sound && sound.isPlaying) {
+      sound.stop();
+      avatarNarrationIsActive = false;
+    }
   }
 }
 
