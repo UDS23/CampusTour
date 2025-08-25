@@ -1,7 +1,5 @@
 # babylontut
 
-"Babylon.js Tutorial For Absolute Beginners" YouTube tutorial project files https://youtu.be/e6EkrLr8g_o
-
 1. Clone repository
 2. Install dependencies: open project in VSCode -> open command line -> type: npm install
 3. Run local server by typing this command: npm run dev
@@ -15,5 +13,6 @@ Hotkeys:
 4. S Narration
 5. Keys "1"..."5" Travel to Specific Station
 
-Toggle box on the right to switch to automated tour mode
-Press box next to it to start automated tour
+Click Toggle the red cylinder on the right to switch to automated tour mode
+
+Press the yellow box on the left to start the automated tour

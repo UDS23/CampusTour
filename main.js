@@ -398,7 +398,7 @@ function easeCustom(t, travelSpeedArrayForCurrentStation) {
     t,
     travelSpeedArrayForCurrentStation
   );
-  console.log("beziervectors for calculation = " + interpolatedSpeedValues);
+  //console.log("beziervectors for calculation = " + interpolatedSpeedValues);
   return interpolatedSpeedValues;
 }
 
@@ -530,7 +530,7 @@ function animateAlongBezier({
   crossingPoints,
   duration,
   destination,
-  thisFunctionisCalledAfterAnimationEnds = () => {}, // It means if the caller does NOT provide an onComplete function, then onComplete will default to an empty function () => {}
+  thisFunctionisCalledAfterAnimationEnds = () => {}, // It means if the caller does NOT provide an onComplete function, then onComplete will default to an empty function () => {}. Not used in this project as of now.
 }) {
   let t = 0;
   animationGroups[0].speedRatio = animationSpeedWhileTraveling; // this if for the UFO and concerns the spinning animation. We dont necessarily need that later
@@ -561,18 +561,17 @@ function animateAlongBezier({
       console.log(centerPoint);
 
       if (
-        // We go in here when we reach the Center Point
+        // We go in here when we reach the Center Point // not used in this project as of now.
         typeof thisFunctionisCalledAfterAnimationEnds === "function" &&
         campusTaxiMesh.position.equals(centerPoint)
       ) {
-        console.log(`callback activated`);
-        thisFunctionisCalledAfterAnimationEnds(); // trigger travelCTS when animation has finished (t = 0);
+        //console.log(`callback activated`);
+        thisFunctionisCalledAfterAnimationEnds(); // triggers travelCTS when animation has finished (t = 0); // This is a function that we pass
       }
 
       if (automatedTourActive) {
         avatarNarration();
       }
-      //} // trigger the callback
 
       return;
     }
